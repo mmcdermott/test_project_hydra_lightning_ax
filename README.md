@@ -19,4 +19,8 @@ subdirectories for various iterations; this v1 will live in `v1_MNIST`.
 # Log
 ##### 09/20/2020
   1. Set up project
-  2. TODO
+  2. Built basic MNIST classifier using PyTorch Lightning
+  
+##### 10/07/2020
+  1. Refined MNIST classifier (added validation step and basic metrics).
+  2. Began exploring hyperparameter search options. Ax seems to be missing some nice features, and is surprisingly poorly documented. Pro-tip: When googling for things related to Ax, include "Facebook" in the search query, or you get unrelated results.
