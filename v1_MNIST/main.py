@@ -15,7 +15,7 @@ Usage:
 
 import torch
 from argparse             import ArgumentParser
-from pytorch_lightning    import LightningModule, LightningDataModule, Trainer
+from pytorch_lightning    import LightningModule, LightningDataModule, Trainer, metrics, EvalResult
 from torchvision.datasets import MNIST
 from torchvision          import transforms
 from torch.utils.data     import random_split, DataLoader
@@ -41,6 +41,7 @@ class FCNN(LightningModule):
         self.out_layer    = torch.nn.Linear(in_size, 10)
         self.softmax      = torch.nn.Softmax(dim=1)
         self.loss         = torch.nn.CrossEntropyLoss()
+        self.accuracy     = metrics.classification.Accuracy()
 
     def forward(self, batch):
         batch_size = batch.size()[0]
@@ -49,6 +50,18 @@ class FCNN(LightningModule):
     def training_step(self, batch, _):
         batch_x, batch_y = batch
         return self.loss(self(batch_x), batch_y)
+
+    def validation_step(self, batch, _):
+        batch_x, batch_y = batch
+
+        logits = self(batch_x)
+
+        acc = self.accuracy(logits, batch_y)
+        loss = self.loss(self(batch_x), batch_y)
+
+        result = EvalResult()
+        result.log('val_loss', loss)
+        result.log('val_acc', acc)
 
     def configure_optimizers(self):
         # TODO(mmd): I don't like that lr is needed here, but batch_size is needed in a different place -- can
@@ -87,18 +100,15 @@ class MNISTDataModule(LightningDataModule):
 ACTIVATIONS_MAPPING = {
     'ReLU': torch.nn.ReLU,
 }
-def main(
-    layer_sizes = None,
-    batch_size  = 32,
-    act         = 'ReLU',
-    data_dir    = "/crimea/MNIST",
-):
-    act = ACTIVATIONS_MAPPING[act]
-    model = FCNN(layer_sizes=layer_sizes, act=act)
-    data = MNISTDataModule(data_dir=data_dir, batch_size=batch_size)
-    trainer = Trainer(gpus=1)
+def main(args):
+    act = ACTIVATIONS_MAPPING[args.act]
+    model = FCNN(layer_sizes=args.layer_sizes, act=act)
+    data = MNISTDataModule(data_dir=args.data_dir, batch_size=args.batch_size)
+    trainer = Trainer.from_argparse_args(args)
 
     trainer.fit(model, data)
+
+    return model, data, trainer
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -106,6 +116,8 @@ if __name__ == '__main__':
     parser.add_argument('--act', type=str, default='ReLU')
     parser.add_argument('--data_dir', type=str, default='/crimea/MNIST')
     parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--auto_lr_find', action='store_true', default=False)
+    parser.add_argument('--max_epochs', type=int, default=20)
 
     args = parser.parse_args()
-    main(**vars(args))
+    main(args)
